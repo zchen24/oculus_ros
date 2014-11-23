@@ -21,6 +21,7 @@ int main(int argc, char** argv)
     while(ros::ok())
     {
         oculus.UpdateSensors();
+        ros::spinOnce();
         rate.sleep();
     }
 }
