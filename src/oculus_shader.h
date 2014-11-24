@@ -7,6 +7,9 @@
 #include <opencv2/opencv.hpp>
 #include <GL/gl.h>
 #include <OVR.h>
+#include <sensor_msgs/Image.h>
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
 
 namespace oculus_ros
 {
@@ -14,16 +17,20 @@ namespace oculus_ros
 class OculusShader
 {
 public:
-    static OculusShader* Instance(void);
+    static OculusShader* Instance(ros::NodeHandle &node);
 
     // Callback Function
     static void CallbackKeyFuncWrapper(unsigned char key, int x, int y);
     static void CallbackRenderWrapper(void);
     static void CallbackOnIdleWrapper(void);
+    static void CallbackTimer(int value);
+
+    void RosCallbackImageLeft(const sensor_msgs::ImageConstPtr& msg);
+    void RosCallbackImageRight(const sensor_msgs::ImageConstPtr& msg);
 
 private:
     // private
-    OculusShader();
+    OculusShader(ros::NodeHandle& node);
     OculusShader(const OculusShader&){}
     OculusShader& operator =(const OculusShader&){}
     virtual ~OculusShader();
@@ -46,6 +53,8 @@ private:
     // Instance
     static OculusShader* mInstance;
     cv::VideoCapture mCap;
+    cv::Mat mVideoImage;
+
     const ovrHmdDesc* mHmd;
 
     GLuint mVertexBuffer, mElementBuffer;
@@ -82,6 +91,8 @@ private:
 
     GLfloat mFadeFactor;
 
+    image_transport::Subscriber  subLeft;
+    image_transport::Subscriber  subRight;
 };
 
 }

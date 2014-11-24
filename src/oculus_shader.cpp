@@ -5,8 +5,9 @@
 #include <iostream>
 #include <GL/glew.h>
 #include <GL/glut.h>
-#include <ros/ros.h>
 #include <ros/package.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
 
 #include "oculus_shader.h"
 
@@ -15,22 +16,34 @@ namespace oculus_ros
 
 OculusShader* OculusShader::mInstance = NULL;
 
-OculusShader* OculusShader::Instance(void)
+OculusShader* OculusShader::Instance(ros::NodeHandle& node)
 {
     if (!mInstance) {
-        mInstance = new OculusShader();
+        mInstance = new OculusShader(node);
     }
     return mInstance;
 }
 
 
-OculusShader::OculusShader()
+OculusShader::OculusShader(ros::NodeHandle &node)
 {
     // ------ Open CV webcam ----------
-    mCap.open(0);
-    if (!mCap.isOpened()) {
-        ROS_ERROR("Failed to open webcam");
-    }
+//    mCap.open(0);
+//    if (!mCap.isOpened()) {
+//        ROS_ERROR("Failed to open webcam");
+//    }
+
+    image_transport::ImageTransport it(node);
+    std::string leftTopic = "/image_raw";
+    std::string rightTopic = "/image_raw";
+    subLeft = it.subscribe(leftTopic, 1,
+                           &OculusShader::RosCallbackImageLeft, this);
+    subRight = it.subscribe(rightTopic, 1,
+                            &OculusShader::RosCallbackImageRight, this);
+
+//    subLeft = node.subscribe(leftTopic, 1,
+//                             &OculusShader::RosCallbackImageLeft, this);
+
 
     // make shader
     std::string pkgPath = ros::package::getPath("oculus_ros");
@@ -230,6 +243,8 @@ OculusShader::OculusShader()
             glGetAttribLocation(mProgram, "Texcoord1");
     mAttributes.texcoord2Loc =
             glGetAttribLocation(mProgram, "Texcoord2");
+
+    mVideoImage = cv::Mat(800, 450, CV_8UC3);
 }
 
 OculusShader::~OculusShader()
@@ -256,6 +271,46 @@ void OculusShader::CallbackKeyFuncWrapper(unsigned char key, int x, int y)
     //    std::cout << "keyboard" << std::endl;
 }
 
+
+void OculusShader::CallbackTimer(int value)
+{
+//    ros::spinOnce();
+//    std::cout << "ROS Ok() =  " << ros::ok()
+//              << "  value = " << value << std::endl;
+}
+
+
+// -------- ROS Callback -------------
+void OculusShader::RosCallbackImageLeft(const sensor_msgs::ImageConstPtr &msg)
+{
+    ROS_INFO("Left Image Callback");
+
+    cv_bridge::CvImageConstPtr cvImg = cv_bridge::toCvShare(msg);
+
+    unsigned int width, height;
+    width = cvImg->image.cols;
+    height = cvImg->image.rows;
+
+    mVideoImage.adjustROI(0, 0, 0, -width);
+    cvImg->image.copyTo(mVideoImage);
+    mVideoImage.adjustROI(0, 0, 0, width);
+}
+
+
+void OculusShader::RosCallbackImageRight(const sensor_msgs::ImageConstPtr &msg)
+{
+    ROS_INFO("Right Image Callback");
+
+    cv_bridge::CvImageConstPtr cvImg = cv_bridge::toCvShare(msg);
+
+    unsigned int width, height;
+    width = cvImg->image.cols;
+    height = cvImg->image.rows;
+
+    mVideoImage.adjustROI(0, 0, -width, 0);
+    cvImg->image.copyTo(mVideoImage);
+    mVideoImage.adjustROI(0, 0, width, 0);
+}
 
 
 // ---------------------------------------------
@@ -377,6 +432,7 @@ void OculusShader::CallbackOnIdle()
     int milliseconds = glutGet(GLUT_ELAPSED_TIME);
     mFadeFactor = sinf((float)milliseconds * 0.001f) * 0.5f + 0.5f;
 
+#if 0
     // grep image and update texture from webcam;
     cv::Mat frame;
     mCap >> frame;
@@ -390,17 +446,20 @@ void OculusShader::CallbackOnIdle()
     fullFrame.adjustROI(0, 0, -frame.cols, frame.cols);
     frame.copyTo(fullFrame);
     fullFrame.adjustROI(0, 0, frame.cols, 0);
+#endif
+
+    ros::spinOnce();
 
     // opencv version
     int width, height;
-    width = fullFrame.cols;
-    height = fullFrame.rows;
+    width = mVideoImage.cols;
+    height = mVideoImage.rows;
     glTexImage2D(
                 GL_TEXTURE_2D, 0,           /* target, level */
                 GL_RGB8,                    /* internal format */
                 width, height, 0,           /* width, height, border */
                 GL_BGR, GL_UNSIGNED_BYTE,   /* external format, type */
-                fullFrame.data                  /* pixels */
+                mVideoImage.data            /* pixels */
                 );
 
     glutPostRedisplay();

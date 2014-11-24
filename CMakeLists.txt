@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   geometry_msgs
   tf
+  image_transport
+  cv_bridge
 )
 
 # Oculus SDK

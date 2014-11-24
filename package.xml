@@ -25,8 +25,14 @@
   <build_depend>tf</build_depend>
   <run_depend>tf</run_depend>
 
+  <build_depend>image_transport</build_depend>
+  <run_depend>image_transport</run_depend>
+
+  <build_depend>cv_bridge</build_depend>
+  <run_depend>cv_bridge</run_depend>
+
   <build_depend>oculus_sdk</build_depend>
-  <run_depend>roscpp</run_depend>
+  <run_depend>oculus_sdk</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
